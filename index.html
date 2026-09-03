@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="is">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Ísfast — Rekstur & fjárfesting</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+<style>
+  :root {
+    --bg: #0e1116; --card: #161b22; --card-hover: #1c2330; --border: #2a3340;
+    --text: #e6e9ee; --muted: #8b95a3; --accent: #58a6ff; --error: #f47067;
+    --s-ext: #3987e5;    /* ytri kostnaður  (blue, dark step)  */
+    --s-lab: #1baf7a;    /* innri vinna     (aqua)             */
+    --s-oh:  #6e7681;    /* yfirbygging     (neutral grey)     */
+    --s-int: #4d5666;    /* innanhúss       (darker neutral)   */
+    --s-lgt: #9085e9;    /* aðkeypt GT/LGT  (violet)           */
+    --s-ann: #d55181;    /* annar rekstur   (magenta)          */
+    --pos: #3987e5; --neg: #e66767;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f6f8; --card: #ffffff; --card-hover: #f0f4fa; --border: #dde2e9;
+      --text: #1c2330; --muted: #5c6675; --accent: #0969da; --error: #cf222e;
+      --s-ext: #2a78d6; --s-lab: #1baf7a; --s-oh: #6e7781; --s-int: #b9c0cb;
+      --s-lgt: #4a3aa7; --s-ann: #e87ba4;
+      --pos: #2a78d6; --neg: #e34948;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5; padding: 2.5rem 1.25rem 4rem; max-width: 1080px; margin: 0 auto; }
+  #lock { max-width: 360px; margin: 18vh auto 0; text-align: center; }
+  #lock .anchor { font-size: 3rem; }
+  #lock form { display: flex; gap: 0.5rem; margin-top: 1.25rem; }
+  #lock input { flex: 1; padding: 0.65rem 0.9rem; font-size: 1rem; color: var(--text);
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px; outline: none; }
+  #lock input:focus { border-color: var(--accent); }
+  #lock button { padding: 0.65rem 1.1rem; font-size: 1rem; color: #fff;
+    background: var(--accent); border: none; border-radius: 10px; cursor: pointer; }
+  #lock .msg { margin-top: 0.75rem; font-size: 0.9rem; color: var(--error); min-height: 1.3em; }
+  header h1 { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; }
+  header p { color: var(--muted); font-size: 0.92rem; margin-top: 0.25rem; }
+  .filters { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 1.2rem 0 0.4rem; }
+  .chip { padding: 0.3rem 0.85rem; font-size: 0.88rem; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--card); color: var(--muted); }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.8rem; margin-top: 1rem; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 0.9rem 1.1rem; }
+  .kpi .v { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.02em; }
+  .kpi .l { color: var(--muted); font-size: 0.84rem; margin-top: 0.15rem; }
+  section { margin-top: 2.4rem; }
+  h2 { font-size: 1.02rem; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.9rem; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.1rem 1.2rem; overflow-x: auto; }
+  .legend { display: flex; gap: 1.1rem; flex-wrap: wrap; font-size: 0.82rem;
+    color: var(--muted); margin-bottom: 0.9rem; }
+  .legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .sw { width: 0.7rem; height: 0.7rem; border-radius: 3px; display: inline-block; }
+  .hrow { display: grid; grid-template-columns: 168px 1fr 108px; align-items: center;
+    gap: 0.7rem; padding: 0.22rem 0; }
+  .hrow .nm { font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hrow .val { font-size: 0.84rem; text-align: right; color: var(--text);
+    font-variant-numeric: tabular-nums; }
+  .bar { display: flex; height: 16px; gap: 2px; }
+  .seg { border-radius: 4px; min-width: 0; transition: opacity 0.1s; }
+  .seg:hover { opacity: 0.8; }
+  .arch { opacity: 0.55; }
+  .cols { display: flex; align-items: flex-end; gap: 1.6rem; height: 210px;
+    padding: 0.4rem 0.5rem 0; }
+  .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end;
+    align-items: stretch; gap: 0; height: 100%; max-width: 130px; }
+  .col .stack { display: flex; flex-direction: column-reverse; gap: 2px; }
+  .col .cseg { border-radius: 4px 4px 0 0; }
+  .col .cseg + .cseg { border-radius: 4px; }
+  .col .yl { text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 0.45rem; }
+  .col .tv { text-align: center; font-size: 0.8rem; color: var(--text);
+    font-variant-numeric: tabular-nums; margin-bottom: 0.3rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+  th { text-align: right; color: var(--muted); font-weight: 600; padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  td { padding: 0.38rem 0.6rem; text-align: right; border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  td.neg { color: var(--neg); }
+  td.pos { color: var(--pos); }
+  .mbar { display: inline-block; height: 9px; border-radius: 4px; vertical-align: middle; }
+  .util { display: inline-block; width: 82px; height: 9px; border-radius: 4px;
+    background: var(--border); position: relative; vertical-align: middle; margin-right: 0.4rem; }
+  .util i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px;
+    background: var(--s-lab); }
+  .note { color: var(--muted); font-size: 0.82rem; margin-top: 0.7rem; }
+  .minis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.8rem; }
+  .mini { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 0.9rem 1rem 0.7rem; }
+  .mini h3 { font-size: 0.82rem; color: var(--muted); font-weight: 600; margin-bottom: 0.6rem; }
+  .mini .cols { height: 120px; gap: 0.55rem; padding: 0; }
+  .mini .col .yl, .mini .col .tv { font-size: 0.72rem; }
+  .duo { display: flex; gap: 0.45rem; align-items: flex-end; height: 100%; }
+  .duo .stack { flex: 1; }
+  .drill { cursor: pointer; }
+  .drill:hover { background: var(--card-hover); }
+  #modalbg { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 20;
+    display: none; align-items: flex-start; justify-content: center; padding: 4vh 1rem; }
+  #modal { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    max-width: 720px; width: 100%; max-height: 88vh; overflow-y: auto;
+    padding: 1.3rem 1.5rem 1.5rem; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+  #modal h3 { font-size: 1.1rem; margin-bottom: 0.2rem; }
+  #modal .sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.9rem; }
+  #modal h4 { font-size: 0.82rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.05em; margin: 1.1rem 0 0.5rem; }
+  #modal table { font-size: 0.84rem; }
+  #modalclose { float: right; cursor: pointer; color: var(--muted); font-size: 1.3rem;
+    line-height: 1; padding: 0.1rem 0.4rem; }
+  #modalclose:hover { color: var(--text); }
+  #tip { position: fixed; pointer-events: none; background: var(--card);
+    border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.7rem;
+    font-size: 0.82rem; z-index: 10; display: none; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+  footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 0.88rem; display: flex;
+    justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+  footer a { color: var(--accent); text-decoration: none; cursor: pointer; }
+  footer a:hover { text-decoration: underline; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div id="lock" class="hidden">
+  <div class="anchor">📊</div>
+  <form id="lockform">
+    <input id="pass" type="password" placeholder="Passphrase" autocomplete="current-password" autofocus>
+    <button type="submit">Opna</button>
+  </form>
+  <div class="msg" id="lockmsg"></div>
+</div>
+<div id="app" class="hidden">
+  <header>
+    <h1>📊 Ísfast — Rekstur & fjárfesting</h1>
+    <p id="generated"></p>
+  </header>
+  <div class="filters" id="yearchips"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <section>
+    <h2>🏗 Þróunarbók — fjárfesting í verkefnum</h2>
+    <div class="panel">
+      <div class="legend">
+        <span><span class="sw" style="background:var(--s-ext)"></span>Ytri kostnaður</span>
+        <span><span class="sw" style="background:var(--s-lab)"></span>Innri vinna (t×taxti)</span>
+        <span><span class="sw" style="background:var(--s-oh)"></span>Yfirbygging</span>
+      </div>
+      <div id="devbars"></div>
+      <div class="note">SPV-tala = ytri + innri vinna (án yfirbyggingar). Óvirk verkefni fölnuð.
+        GT-skipting <span id="gtsplit"></span> — breytist á Stillingar-flipa vinnubókarinnar.</div>
+    </div>
+  </section>
+
+  <section id="sec-clients">
+    <h2>💼 Viðskiptavinir — tekjur & framlegð</h2>
+    <div class="panel">
+      <div class="legend">
+        <span><span class="sw" style="background:var(--s-ext)"></span>Viðskiptavinir</span>
+        <span><span class="sw" style="background:var(--s-int)"></span>Innanhúss / intercompany</span>
+        <span><span class="sw" style="background:var(--s-oh)"></span>Óútskýrt</span>
+      </div>
+      <div class="cols" id="bridge"></div>
+      <div class="note">Tekjubrú á ári: fjárhagur BC (lyklar 1000–1999) = viðskiptavinir +
+        innanhúss + óútskýrt. Innanhúss (ÍF/ÍFX) er utan framlegðaruppgjörs.</div>
+    </div>
+    <div class="panel" style="margin-top:0.8rem">
+      <table id="clienttbl"></table>
+      <div class="note">Framlegð = tekjur − innri vinna − yfirbygging. Raunverð = tekjur / skráðir tímar.</div>
+    </div>
+  </section>
+
+  <section id="sec-years">
+    <h2>📅 Árssamanburður</h2>
+    <div class="minis" id="minis"></div>
+  </section>
+
+  <section id="sec-flows">
+    <h2>💱 Uppruni & ráðstöfun</h2>
+    <div class="panel">
+      <div class="legend">
+        <span><span class="sw" style="background:var(--s-lab)"></span>Laun</span>
+        <span><span class="sw" style="background:var(--s-lgt)"></span>Aðkeypt GT (LGT)</span>
+        <span><span class="sw" style="background:var(--s-ann)"></span>Annar rekstur (þ.m.t. óflokkað)</span>
+        <span><span class="sw" style="background:var(--s-ext)"></span>Ytri kostn. þróunar / Tekjur</span>
+        <span><span class="sw" style="background:var(--s-oh)"></span>Eignamyndun í þróun (t×taxti)</span>
+      </div>
+      <div class="cols" id="flows" style="height:250px"></div>
+      <div class="note">Vinstri súla hvers árs = ráðstöfun (laun + aðkeypt GT + annar rekstur +
+        ytri kostn. þróunarverkefna). Hægri = á móti (tekjur viðskiptavina + eignamyndun í þróun:
+        ytri + innri vinna). Bilið á milli = rekstrarafgangur/-halli ársins — 2023 sýnir tapið
+        sem innanhúss-reikningarnir jöfnuðu í ársreikningi.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>💎 Verðmat þróunarverkefna</h2>
+    <div class="panel">
+      <table id="virdistbl"></table>
+      <div class="note">Fjárfest beint = ytri + innri vinna (SPV-talan); "m. yfirbyggingu" = sama tala
+        og Þróunarbókin sýnir. Margfaldarinn er reiknaður á beinu töluna. Vænt virði og líkur af
+        Virðismat-flipanum (drög úr Projects & Resources) — breyttu þar.</div>
+    </div>
+    <div class="panel" style="margin-top:0.8rem">
+      <div class="legend">
+        <span><span class="sw" style="background:var(--s-ext)"></span>Þróunarverkefni</span>
+        <span><span class="sw" style="background:var(--s-oh)"></span>Þjónustuþóknun</span>
+      </div>
+      <div class="cols" id="virdistl"></div>
+      <div class="note" id="virdisnote"></div>
+    </div>
+  </section>
+
+  <section id="sec-emp">
+    <h2>👥 Starfsmenn — nýting & framlegð</h2>
+    <div class="panel">
+      <table id="emptbl"></table>
+      <div class="note">Nýting = skráðir tímar / (geta − fjarvera). Framlegð = seld velta (Útseld vinna)
+        − heildarlaunakostnaður. Þróunarfólk er neikvætt hér <em>by design</em> — þeirra virði
+        birtist í Þróunarbókinni. STVA/UTL-þóknanir teljast ekki á einstaklinga.</div>
+    </div>
+  </section>
+
+  <footer>
+    <span><a href="/">⚓ Öll verkefni</a> · <a id="lockbtn">Læsa þessu tæki</a></span>
+    <span>Uppfærist í nætur-keyrslu kl. 06:30 · BC + Toggl + Útseld vinna</span>
+  </footer>
+</div>
+<div id="tip"></div>
+<div id="modalbg"><div id="modal"><span id="modalclose">×</span><div id="modalbody"></div></div></div>
+<script>
+const IS_TEAM_PATH = true;  // isfast-is/throunarbok is always the team page
+const STORE_KEY = IS_TEAM_PATH ? 'ifteam_pass' : 'ifabc_pass';  // each page has its OWN passphrase
+const enc = new TextEncoder();
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+async function decrypt(payload, passphrase) {
+  const km = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: b64d(payload.salt), iterations: 300000, hash: 'SHA-256' },
+    km, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(payload.iv) }, key, b64d(payload.data));
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+let D = null, selYear = null;
+const gy = (o, y) => (o && (o[y] ?? o[String(y)])) || 0;
+const years = () => selYear ? [selYear] : D.years;
+const S = (o) => years().reduce((a, y) => a + gy(o, y), 0);
+const mkr = v => (v / 1e6).toLocaleString('is-IS', { maximumFractionDigits: 1, minimumFractionDigits: v >= 1e8 ? 0 : 1 }) + ' m';
+const kr0 = v => Math.round(v).toLocaleString('is-IS');
+const hrs = v => Math.round(v).toLocaleString('is-IS') + ' klst';
+
+const tip = document.getElementById('tip');
+function bindTips(root) {
+  root.querySelectorAll('[data-tip]').forEach(n => {
+    n.addEventListener('mousemove', e => {
+      tip.innerHTML = n.dataset.tip;
+      tip.style.display = 'block';
+      tip.style.left = Math.min(e.clientX + 14, innerWidth - 240) + 'px';
+      tip.style.top = (e.clientY + 14) + 'px';
+    });
+    n.addEventListener('mouseleave', () => tip.style.display = 'none');
+  });
+}
+
+function el(tag, cls, html) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (html !== undefined) n.innerHTML = html;
+  return n;
+}
+
+function renderChips() {
+  const box = document.getElementById('yearchips');
+  box.textContent = '';
+  const mk = (label, y) => {
+    const c = el('span', 'chip' + ((selYear === y) ? ' on' : ''), label);
+    c.onclick = () => { selYear = y; renderAll(); };
+    box.appendChild(c);
+  };
+  mk('Allt tímabilið', null);
+  for (const y of D.years) mk(String(y), y);
+}
+
+function projTotals(p) {
+  const ext = S(p.ext), lab = S(p.labour), oh = S(p.oh);
+  return { ext, lab, oh, direct: ext + lab, alls: ext + lab + oh, hours: S(p.hours) };
+}
+function clientTotals(c) {
+  const rev = S(c.rev), lab = S(c.labour), oh = S(c.oh), h = S(c.hours);
+  return { rev, lab, oh, h, sold: S(c.sold), fram: rev - lab - oh };
+}
+
+function renderKpis() {
+  const box = document.getElementById('kpis');
+  box.textContent = '';
+  let inv = 0, invD = 0;
+  for (const p of D.projects) { const t = projTotals(p); inv += t.alls; invD += t.direct; }
+  let rev = 0, fram = 0;
+  for (const c of D.clients) { const t = clientTotals(c); rev += t.rev; fram += t.fram; }
+  const pool = years().reduce((a, y) => a + gy(D.pool, y), 0);
+  const add = (v, l, key, raw) => {
+    const k = el('div', 'kpi drill');
+    k.append(el('div', 'v', v), el('div', 'l', l));
+    k.onclick = () => drillKpi(key, raw);
+    box.appendChild(k);
+  };
+  add(mkr(invD) + '.kr', 'Fjárfesting í þróun (bein · SPV-tala)', 'invD', invD);
+  add(mkr(inv) + '.kr', 'Fjárfesting með yfirbyggingu', 'inv', inv);
+  if (D.scope !== 'dev') {
+    add(mkr(rev) + '.kr', 'Tekjur viðskiptavina', 'rev', rev);
+    add(mkr(fram) + '.kr', 'Framlegð eftir fullri kostnaðardreifingu', 'fram', fram);
+    add(mkr(pool) + '.kr', 'Yfirbygging (ALM+IT+INNRI+fjarvera+ólogguð geta)', 'pool', pool);
+  }
+  const vd = D.virdismat || { years: [], rows: [] };
+  const npvDev = vd.rows.filter(r => r.code).reduce((a, r) => a + vNpv(r, vd.years), 0);
+  add(mkr(npvDev) + '.kr', 'Framvirk NPV þróunarverkefna (núvirt @15%)', 'npv', npvDev);
+}
+
+function renderDev() {
+  const box = document.getElementById('devbars');
+  box.textContent = '';
+  const rows = D.projects.map(p => ({ p, t: projTotals(p) }))
+    .filter(r => r.t.alls > 1000 || r.t.hours > 1)
+    .sort((a, b) => (a.p.stada === 'Virkt' ? 0 : 1) - (b.p.stada === 'Virkt' ? 0 : 1) || b.t.alls - a.t.alls);
+  const max = Math.max(...rows.map(r => r.t.alls), 1);
+  for (const { p, t } of rows) {
+    const row = el('div', 'hrow drill' + (p.stada === 'Virkt' ? '' : ' arch'));
+    row.onclick = () => drillProject(p);
+    const nm = el('div', 'nm');
+    nm.textContent = (p.tnr ? p.tnr + ' · ' : '') + p.code + (p.stada === 'Virkt' ? '' : ' (' + p.stada.toLowerCase() + ')');
+    nm.title = p.name;
+    const bar = el('div', 'bar');
+    for (const [key, color, label] of [['ext', 'var(--s-ext)', 'Ytri'], ['lab', 'var(--s-lab)', 'Innri vinna'], ['oh', 'var(--s-oh)', 'Yfirbygging']]) {
+      if (t[key] <= 0) continue;
+      const seg = el('div', 'seg');
+      seg.style.background = color;
+      seg.style.width = (t[key] / max * 100) + '%';
+      seg.dataset.tip = `<b>${p.code}</b> — ${label}<br>${kr0(t[key])} kr · ${hrs(t.hours)} alls`;
+      bar.appendChild(seg);
+    }
+    row.append(nm, bar, el('div', 'val', mkr(t.alls)));
+    box.appendChild(row);
+  }
+  document.getElementById('gtsplit').textContent = !D.gt_split || D.gt_split.floor === undefined && D.gt_split.dev === undefined ? '' : D.gt_split.floor !== undefined
+    ? `gólf ${D.gt_split.floor}% af BG + yfirstjórn (Hamranes ${(D.gt_split.yfir || {})['Hamranes (108-HH)'] ?? '—'}%)`
+    : `${D.gt_split.dev}/${D.gt_split.fin}/${D.gt_split.bd}`;
+  bindTips(box);
+}
+
+function renderBridge() {
+  const box = document.getElementById('bridge');
+  box.textContent = '';
+  if (D.scope === 'dev') return;
+  const max = Math.max(...D.years.map(y => {
+    const b = D.bridge[y] || D.bridge[String(y)] || {};
+    return (b.clients || 0) + (b.interco || 0) + Math.abs(b.unexplained || 0);
+  }), 1);
+  for (const y of D.years) {
+    const b = D.bridge[y] || D.bridge[String(y)] || {};
+    const col = el('div', 'col');
+    const total = (b.clients || 0) + (b.interco || 0) + (b.unexplained || 0);
+    col.appendChild(el('div', 'tv', mkr(total)));
+    const stack = el('div', 'stack');
+    for (const [v, color, label] of [[b.clients, 'var(--s-ext)', 'Viðskiptavinir'],
+                                     [b.interco, 'var(--s-int)', 'Innanhúss/intercompany'],
+                                     [Math.abs(b.unexplained || 0), 'var(--s-oh)', 'Óútskýrt']]) {
+      if (!v || v < 1000) continue;
+      const seg = el('div', 'cseg');
+      seg.style.background = color;
+      seg.style.height = Math.max(v / max * 170, 3) + 'px';
+      seg.dataset.tip = `<b>${y}</b> — ${label}<br>${kr0((label === 'Óútskýrt' ? (b.unexplained || 0) : v))} kr`;
+      stack.appendChild(seg);
+    }
+    col.appendChild(stack);
+    col.appendChild(el('div', 'yl', String(y)));
+    box.appendChild(col);
+  }
+  bindTips(box);
+}
+
+function renderClients() {
+  const t = document.getElementById('clienttbl');
+  const rows = D.clients.map(c => ({ c, t: clientTotals(c) }))
+    .filter(r => Math.abs(r.t.rev) > 1000 || r.t.h > 1)
+    .sort((a, b) => b.t.rev - a.t.rev);
+  const maxAbs = Math.max(...rows.map(r => Math.abs(r.t.fram)), 1);
+  let html = '<tr><th>Viðskiptavinur</th><th>Tekjur</th><th>Seldir t.</th><th>Skráðir t.</th>' +
+             '<th>Innri vinna</th><th>Yfirbygging</th><th>Framlegð</th><th>%</th><th>kr/klst</th><th></th></tr>';
+  for (const { c, t: x } of rows) {
+    const pct = x.rev ? Math.round(x.fram / x.rev * 100) + '%' : '—';
+    const rate = x.h > 1 ? kr0(x.rev / x.h) : '—';
+    const w = Math.round(Math.abs(x.fram) / maxAbs * 70);
+    const bar = `<span class="mbar" style="width:${w}px;background:${x.fram >= 0 ? 'var(--pos)' : 'var(--neg)'}"></span>`;
+    html += `<tr><td>${c.name}</td><td>${kr0(x.rev)}</td><td>${x.sold ? kr0(x.sold) : '—'}</td>` +
+            `<td>${x.h > 1 ? kr0(x.h) : '—'}</td><td>${kr0(x.lab)}</td><td>${kr0(x.oh)}</td>` +
+            `<td class="${x.fram < 0 ? 'neg' : 'pos'}">${kr0(x.fram)}</td><td>${pct}</td>` +
+            `<td>${rate}</td><td style="text-align:left">${bar}</td></tr>`;
+  }
+  const T = rows.reduce((a, { t: x }) => ({ rev: a.rev + x.rev, sold: a.sold + x.sold,
+    h: a.h + x.h, lab: a.lab + x.lab, oh: a.oh + x.oh, fram: a.fram + x.fram }),
+    { rev: 0, sold: 0, h: 0, lab: 0, oh: 0, fram: 0 });
+  html += `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>Samtals</td>` +
+          `<td>${kr0(T.rev)}</td><td>${kr0(T.sold)}</td><td>${kr0(T.h)}</td><td>${kr0(T.lab)}</td>` +
+          `<td>${kr0(T.oh)}</td><td class="${T.fram < 0 ? 'neg' : 'pos'}">${kr0(T.fram)}</td>` +
+          `<td>${T.rev ? Math.round(T.fram / T.rev * 100) + '%' : '—'}</td>` +
+          `<td>${T.h > 1 ? kr0(T.rev / T.h) : '—'}</td><td></td></tr>`;
+  t.innerHTML = html;
+  rows.forEach((r, i) => {
+    const tr = t.rows[i + 1];
+    if (tr) { tr.classList.add('drill'); tr.onclick = () => drillClient(r.c); }
+  });
+}
+
+function renderEmployees() {
+  const t = document.getElementById('emptbl');
+  const rows = D.employees.map(e => {
+    const cap = S(e.cap), logged = S(e.logged), abs = S(e.absent);
+    const cost = S(e.cost), bill = S(e.billed_kr), bh = S(e.billed_h);
+    const dev = S(e.dev_h), selt = S(e.selt_h);
+    const net = Math.max(cap - abs, 1);
+    return { e, cap, logged, abs, cost, bill, bh, dev, selt, util: cap ? logged / net : null };
+  }).filter(r => r.cap > 0 || r.bill > 0)
+    .sort((a, b) => b.bill - a.bill);
+  if (D.team) {
+    let html = '<tr><th>Starfsmaður</th><th>Nýting</th><th>Skráðir t.</th><th>þar af selt</th><th>þar af þróun</th><th>Fjarvera</th></tr>';
+    for (const r of rows) {
+      const u = r.util === null ? '—' :
+        `<span class="util"><i style="width:${Math.min(r.util * 100, 100)}%"></i></span>${Math.round(r.util * 100)}%`;
+      html += `<tr><td>${r.e.name}</td><td>${u}</td><td>${kr0(r.logged)}</td>` +
+              `<td>${kr0(r.selt)}</td><td>${kr0(r.dev)}</td><td>${kr0(r.abs)}</td></tr>`;
+    }
+    const T = rows.reduce((a, r) => ({ cap: a.cap + r.cap, abs: a.abs + r.abs, logged: a.logged + r.logged,
+      selt: a.selt + r.selt, dev: a.dev + r.dev }), { cap: 0, abs: 0, logged: 0, selt: 0, dev: 0 });
+    html += `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>Samtals</td>` +
+            `<td>${T.cap ? Math.round(T.logged / Math.max(T.cap - T.abs, 1) * 100) + '%' : '—'}</td>` +
+            `<td>${kr0(T.logged)}</td><td>${kr0(T.selt)}</td><td>${kr0(T.dev)}</td><td>${kr0(T.abs)}</td></tr>`;
+    t.innerHTML = html;
+    rows.forEach((r, i) => { const tr = t.rows[i + 1]; if (tr) { tr.classList.add('drill'); tr.onclick = () => drillEmp(r); } });
+    return;
+  }
+  let html = '<tr><th>Starfsmaður</th><th>Nýting</th><th>Skráðir t.</th><th>þar af selt</th>' +
+             '<th>þar af þróun</th><th>Seldir t.</th><th>Seld velta</th><th>Kostnaður</th><th>Framlegð</th></tr>';
+  for (const r of rows) {
+    const u = r.util === null ? '—' :
+      `<span class="util"><i style="width:${Math.min(r.util * 100, 100)}%"></i></span>${Math.round(r.util * 100)}%`;
+    const fram = r.bill - r.cost;
+    html += `<tr><td>${r.e.name}</td><td>${u}</td><td>${kr0(r.logged)}</td>` +
+            `<td>${kr0(r.selt)}</td><td>${kr0(r.dev)}</td><td>${kr0(r.bh)}</td>` +
+            `<td>${kr0(r.bill)}</td><td>${kr0(r.cost)}</td>` +
+            `<td class="${fram < 0 ? 'neg' : 'pos'}">${kr0(fram)}</td></tr>`;
+  }
+  const T = rows.reduce((a, r) => ({ cap: a.cap + r.cap, abs: a.abs + r.abs,
+    logged: a.logged + r.logged, selt: a.selt + r.selt, dev: a.dev + r.dev,
+    bh: a.bh + r.bh, bill: a.bill + r.bill, cost: a.cost + r.cost }),
+    { cap: 0, abs: 0, logged: 0, selt: 0, dev: 0, bh: 0, bill: 0, cost: 0 });
+  const tu2 = T.cap ? Math.round(T.logged / Math.max(T.cap - T.abs, 1) * 100) + '%' : '—';
+  const tf = T.bill - T.cost;
+  html += `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>Samtals</td>` +
+          `<td>${tu2}</td><td>${kr0(T.logged)}</td><td>${kr0(T.selt)}</td><td>${kr0(T.dev)}</td>` +
+          `<td>${kr0(T.bh)}</td><td>${kr0(T.bill)}</td><td>${kr0(T.cost)}</td>` +
+          `<td class="${tf < 0 ? 'neg' : 'pos'}">${kr0(tf)}</td></tr>`;
+  t.innerHTML = html;
+  rows.forEach((r, i) => {
+    const tr = t.rows[i + 1];
+    if (tr) { tr.classList.add('drill'); tr.onclick = () => drillEmp(r); }
+  });
+}
+
+// ---- drill-down modal ----
+function openModal(html) {
+  document.getElementById('modalbody').innerHTML = html;
+  document.getElementById('modalbg').style.display = 'flex';
+}
+function closeModal() { document.getElementById('modalbg').style.display = 'none'; }
+document.getElementById('modalbg').addEventListener('click', e => {
+  if (e.target.id === 'modalbg') closeModal();
+});
+document.getElementById('modalclose').onclick = closeModal;
+addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+function mtable(headers, rowsArr) {
+  let h = '<table><tr>' + headers.map((x, i) =>
+    `<th${i === 0 ? ' style="text-align:left"' : ''}>${x}</th>`).join('') + '</tr>';
+  for (const r of rowsArr) {
+    h += '<tr>' + r.map((x, i) =>
+      `<td${i === 0 ? ' style="text-align:left"' : ''}>${x}</td>`).join('') + '</tr>';
+  }
+  return h + '</table>';
+}
+
+function drillProject(p) {
+  const yrs = D.years;
+  const perY = yrs.map(y => {
+    const e = gy(p.ext, y), l = gy(p.labour, y), o = gy(p.oh, y);
+    return [y, kr0(e), kr0(l), kr0(gy(p.hours, y)) + ' klst', kr0(o), kr0(e + l + o)];
+  });
+  const te = S(p.ext), tl = S(p.labour), to = yrs.reduce((a, y) => a + gy(p.oh, y), 0);
+  perY.push(['<b>Alls</b>', `<b>${kr0(te)}</b>`, `<b>${kr0(tl)}</b>`,
+             `<b>${kr0(S(p.hours))} klst</b>`, `<b>${kr0(to)}</b>`, `<b>${kr0(te + tl + to)}</b>`]);
+  let html = `<h3>${p.code} — ${p.name}</h3>` +
+    `<div class="sub">${p.flokkur} · ${p.stada}${p.tnr ? ' · ' + p.tnr : ''} · ` +
+    `SPV-tala (beint) = ytri + innri vinna = ${kr0(te + tl)} kr</div>`;
+  html += '<h4>Eftir árum</h4>' +
+    mtable(['Ár', 'Ytri kostn.', 'Innri vinna', 'Tímar', 'Yfirbygging', 'Alls'], perY);
+  if (p.people && p.people.length) {
+    html += '<h4>Innri vinna — hverjir</h4>' + (D.team
+      ? mtable(['Starfsmaður', 'Tímar'], p.people.map(x => [x.name, kr0(x.h)]))
+      : mtable(['Starfsmaður', 'Tímar', 'Kostnaður'], p.people.map(x => [x.name, kr0(x.h), kr0(x.kr)])));
+  }
+  if (p.vendors && p.vendors.length) {
+    html += '<h4>Ytri kostnaður — birgjar</h4>' + mtable(['Birgir', 'kr'],
+      p.vendors.map(x => [x.name, kr0(x.kr)]));
+  }
+  html += '<div class="note">Línur á bak við ytri kostnað eru í vinnubókinni (Línur-flipi, ' +
+          'sía á Endanlegt verkefni). Yfirbygging = hlutdeild skv. beinum tímum.</div>';
+  openModal(html);
+}
+
+function drillClient(c) {
+  const yrs = D.years;
+  const perY = yrs.map(y => {
+    const r = gy(c.rev, y), l = gy(c.labour, y), o = gy(c.oh, y);
+    return [y, kr0(r), kr0(gy(c.hours, y)), kr0(gy(c.sold, y)), kr0(l), kr0(o), kr0(r - l - o)];
+  });
+  const x = clientTotals(c);
+  perY.push(['<b>Alls</b>', `<b>${kr0(x.rev)}</b>`, `<b>${kr0(x.h)}</b>`, `<b>${kr0(x.sold)}</b>`,
+             `<b>${kr0(x.lab)}</b>`, `<b>${kr0(x.oh)}</b>`, `<b>${kr0(x.fram)}</b>`]);
+  let html = `<h3>${c.name}</h3><div class="sub">Framlegð = tekjur − innri vinna − yfirbygging</div>`;
+  html += '<h4>Eftir árum</h4>' +
+    mtable(['Ár', 'Tekjur', 'Skráðir t.', 'Seldir t.', 'Innri vinna', 'Yfirb.', 'Framlegð'], perY);
+  if (c.people && c.people.length) {
+    html += '<h4>Hverjir unnu</h4>' + (D.team
+      ? mtable(['Starfsmaður', 'Tímar'], c.people.map(p => [p.name, kr0(p.h)]))
+      : mtable(['Starfsmaður', 'Tímar', 'Kostnaður'], c.people.map(p => [p.name, kr0(p.h), kr0(p.kr)])));
+  }
+  if (c.docs && c.docs.length) {
+    html += '<h4>Stærstu tekjufærslur (GL)</h4>' + mtable(['Skjal', 'Ár', 'kr'],
+      c.docs.map(d2 => [d2.doc, d2.y, kr0(d2.kr)]));
+  }
+  openModal(html);
+}
+
+function drillEmp(r) {
+  const e = r.e, yrs = D.years;
+  const perY = yrs.map(y => {
+    const cap = gy(e.cap, y), lg = gy(e.logged, y), ab = gy(e.absent, y);
+    const util = cap ? Math.round(lg / Math.max(cap - ab, 1) * 100) + '%' : '—';
+    return D.team ? [y, kr0(cap), kr0(lg), kr0(ab), util]
+                  : [y, kr0(cap), kr0(lg), kr0(ab), util, kr0(gy(e.rate, y)),
+                     kr0(gy(e.cost, y)), kr0(gy(e.billed_kr, y))];
+  });
+  let html = `<h3>${e.name}</h3><div class="sub">${D.team ? 'Nýting = skráðir tímar / (geta − fjarvera)' : 'Kostnaður = geta × taxti; seld velta úr Útseld vinna'}</div>`;
+  html += '<h4>Eftir árum</h4>' + (D.team
+    ? mtable(['Ár', 'Geta', 'Skráð', 'Fjarv.', 'Nýting'], perY)
+    : mtable(['Ár', 'Geta', 'Skráð', 'Fjarv.', 'Nýting', 'Taxti', 'Kostnaður', 'Seld velta'], perY));
+  if (e.codes && e.codes.length) {
+    html += '<h4>Hvar tímarnir liggja</h4>' + mtable(['Verkefni/kóði', 'Tímar'],
+      e.codes.map(cd => [cd.code, kr0(cd.h)]));
+  }
+  openModal(html);
+}
+
+function drillFlow(y) {
+  const x = D.flows[y] || D.flows[String(y)] || {};
+  const fd = (D.flows_detail && (D.flows_detail[y] || D.flows_detail[String(y)])) || {};
+  let html = `<h3>Uppruni & ráðstöfun ${y}</h3><div class="sub">Allar tölur úr BC/ABC-líkaninu</div>`;
+  const staff = x.starfsm !== undefined ? [['Laun og aðkeypt þjónusta (GL raun)', kr0(x.starfsm)]]
+    : [['Laun (GL raun)', kr0(x.laun || 0)], ['Aðkeypt GT (LGT-reikningar)', kr0(x.lgt || 0)]];
+  const staffTot = x.starfsm !== undefined ? x.starfsm : (x.laun||0)+(x.lgt||0);
+  html += '<h4>Ráðstöfun</h4>' + mtable(['Liður', 'kr'], staff.concat([
+    ['Annar rekstur (þ.m.t. óflokkað)', kr0(x.annar || 0)],
+    ['Ytri kostn. þróunarverkefna', kr0(x.dev_ext || 0)],
+    ['<b>Alls</b>', `<b>${kr0(staffTot+(x.annar||0)+(x.dev_ext||0))}</b>`]]));
+  html += '<h4>Á móti</h4>' + mtable(['Liður', 'kr'], [
+    ['Tekjur viðskiptavina', kr0(x.tekjur || 0)],
+    ['Eignamyndun í þróun (ytri + innri)', kr0((x.dev_ext||0)+(x.dev_lab||0))],
+    ['<b>Alls</b>', `<b>${kr0((x.tekjur||0)+(x.dev_ext||0)+(x.dev_lab||0))}</b>`]]);
+  const sub = (t, obj) => {
+    const en = Object.entries(obj || {}).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    return en.length ? `<h4>${t}</h4>` + mtable(['', 'kr'], en.map(([k, v]) => [k, kr0(v)])) : '';
+  };
+  html += sub('Annar rekstur — sundurliðun', fd.annar);
+  html += sub('Ytri þróunarkostn. — eftir verkefnum', fd.dev_ext);
+  html += sub('Innri vinna í þróun — eftir verkefnum', fd.dev_lab);
+  openModal(html);
+}
+
+const KPI_EXPL = {
+  invD: ['Fjárfesting í þróun (bein · SPV-tala)',
+    'Σ yfir valin ár: ytri kostnaður + innri vinna (tímar × taxtar) allra þróunar- og frumþróunarverkefna. Án yfirbyggingar — talan sem færi í SPV-opnunarefnahag.'],
+  inv: ['Fjárfesting með yfirbyggingu', 'Sama og bein fjárfesting + hlutdeild verkefnanna í yfirbyggingunni (dreift eftir beinum tímum).'],
+  rev: ['Tekjur viðskiptavina', 'GL-tekjur (lyklar 1000–1999, án árslokafærslna), án innanhúss/intercompany (ÍF/ÍFX) og óútskýrðra færslna.'],
+  fram: ['Framlegð', 'Tekjur viðskiptavina − innri vinna (skráðir tímar × taxtar) − yfirbyggingarhlutdeild.'],
+  pool: ['Yfirbygging', 'ALM + IT + INNRI (ytri kostn. + innri tímar) + fjarvera + ólogguð geta + launaafstemming. Dreift á verkefni og viðskiptavini eftir beinum tímum.'],
+  npv: ['Framvirk NPV þróunarverkefna', 'Σ yfir öll þróunarverkefni: innlausn hvers árs ÷ 1,15^ár (15% krafa, engar líkur — ákv. GT 3.9.2026). Forsendur og innlausnarhlutföll á "Forsendur GT"-flipanum; matsblað hvers verkefnis opnast með smelli á línu í Verðmatstöflunni. Horfir FRAM — sokkinn kostnaður ræður ekki.'],
+};
+function drillKpi(key, val) {
+  const [title, expl] = KPI_EXPL[key] || [key, ''];
+  openModal(`<h3>${title}</h3><div class="sub">${mkr(val)}.kr ${selYear ? '· ' + selYear : '· öll ár'}</div>` +
+            `<p style="font-size:0.9rem">${expl}</p>` +
+            '<div class="note">Smelltu á línur í töflunum eða súlur til að sjá sundurliðun á bak við hverja tölu.</div>');
+}
+
+function miniCols(title, series) {
+  // series: [{y, v}] — one mini column chart, direct labels
+  const card = el('div', 'mini');
+  card.appendChild(el('h3', null, title));
+  const cols = el('div', 'cols');
+  const max = Math.max(...series.map(s => Math.abs(s.v)), 1);
+  for (const s of series) {
+    const col = el('div', 'col');
+    col.appendChild(el('div', 'tv', mkr(s.v)));
+    const stack = el('div', 'stack');
+    const seg = el('div', 'cseg');
+    seg.style.background = s.v >= 0 ? 'var(--s-ext)' : 'var(--neg)';
+    seg.style.height = Math.max(Math.abs(s.v) / max * 82, 3) + 'px';
+    seg.dataset.tip = `<b>${s.y}</b><br>${kr0(s.v)} kr`;
+    stack.appendChild(seg);
+    col.append(stack, el('div', 'yl', String(s.y)));
+    cols.appendChild(col);
+  }
+  card.appendChild(cols);
+  return card;
+}
+
+function renderMinis() {
+  const box = document.getElementById('minis');
+  box.textContent = '';
+  const perY = (fn) => D.years.map(y => ({ y, v: fn(y) }));
+  const invY = y => D.projects.reduce((a, p) => a + gy(p.ext, y) + gy(p.labour, y), 0);
+  const revY = y => D.clients.reduce((a, c) => a + gy(c.rev, y), 0);
+  const framY = y => D.clients.reduce((a, c) => a + gy(c.rev, y) - gy(c.labour, y) - gy(c.oh, y), 0);
+  const poolY = y => gy(D.pool, y);
+  box.appendChild(miniCols('Fjárfesting í þróun (bein)', perY(invY)));
+  if (D.scope !== 'dev') {
+    box.appendChild(miniCols('Tekjur viðskiptavina', perY(revY)));
+    box.appendChild(miniCols('Framlegð (full dreifing)', perY(framY)));
+    box.appendChild(miniCols('Yfirbygging', perY(poolY)));
+  }
+  bindTips(box);
+}
+
+function renderFlows() {
+  const box = document.getElementById('flows');
+  box.textContent = '';
+  if (D.scope === 'dev') return;
+  const f = y => D.flows[y] || D.flows[String(y)] || {};
+  const uses = y => { const x = f(y); return (x.starfsm !== undefined ? x.starfsm : (x.laun||0) + (x.lgt||0)) + (x.annar||0) + (x.dev_ext||0); };
+  const srcs = y => { const x = f(y); return (x.tekjur||0) + (x.dev_ext||0) + (x.dev_lab||0); };
+  const max = Math.max(...D.years.map(y => Math.max(uses(y), srcs(y))), 1);
+  const H = 195;
+  for (const y of D.years) {
+    const x = f(y);
+    const col = el('div', 'col');
+    col.style.maxWidth = '170px';
+    const gap = srcs(y) - uses(y);
+    col.appendChild(el('div', 'tv',
+      `<span style="color:${gap >= 0 ? 'var(--pos)' : 'var(--neg)'}">${gap >= 0 ? '+' : ''}${mkr(gap)}</span>`));
+    const duo = el('div', 'duo');
+    const mkStack = (parts) => {
+      const st = el('div', 'stack');
+      for (const [v, color, label] of parts) {
+        if (!v || v < 500000) continue;
+        const seg = el('div', 'cseg');
+        seg.style.background = color;
+        seg.style.height = Math.max(v / max * H, 2) + 'px';
+        seg.dataset.tip = `<b>${y}</b> — ${label}<br>${kr0(v)} kr`;
+        st.appendChild(seg);
+      }
+      return st;
+    };
+    const usesParts = (x.starfsm !== undefined
+        ? [[x.starfsm, 'var(--s-lab)', 'Laun og aðkeypt þjónusta']]
+        : [[x.laun, 'var(--s-lab)', 'Laun'], [x.lgt, 'var(--s-lgt)', 'Aðkeypt GT (LGT)']])
+      .concat([[x.annar, 'var(--s-ann)', 'Annar rekstur (þ.m.t. óflokkað)'],
+               [x.dev_ext, 'var(--s-ext)', 'Ytri kostn. þróunarverkefna']]);
+    duo.append(
+      mkStack(usesParts),
+      mkStack([[x.tekjur, 'var(--s-ext)', 'Tekjur viðskiptavina'],
+               [(x.dev_ext||0) + (x.dev_lab||0), 'var(--s-oh)', 'Eignamyndun í þróun (ytri + innri)']]));
+    col.append(duo, el('div', 'yl', String(y)));
+    col.classList.add('drill');
+    col.onclick = () => drillFlow(y);
+    box.appendChild(col);
+  }
+  bindTips(box);
+}
+
+function vNpv(r, years) {
+  const y0 = parseInt((D.generated || '2026').slice(0, 4));
+  const disc = (r.disc || 15) / 100;
+  return years.reduce((a, y) => a + gy(r.vals, y) /
+    Math.pow(1 + disc, Math.max(y - y0, 0)), 0);
+}
+
+function drillMats(r, inv, invAll, npv) {
+  const mb = (D.matsblod || {})[r.code];
+  const w = vNpv(r, (D.virdismat || {}).years || []);
+  let html = `<h3>${mb ? mb.titill : r.code + ' — ' + r.heiti}</h3>` +
+    `<div class="sub">Innlausn alls ${kr0(r.total || 0)} kr · núvirt á ${r.disc || 15}%</div>`;
+  if (mb && mb.lysing) html += `<p style="font-size:0.88rem;margin-bottom:0.4rem">${mb.lysing}</p>`;
+  html += '<h4>Fjárhagsstaða</h4>' + mtable(['', 'kr'], [
+    ['Fjárfest beint (SPV)', kr0(inv)], ['— með yfirbyggingu', kr0(invAll)],
+    ['Innlausn alls (ódiskonterað)', kr0((D.virdismat.years || []).reduce((a, y) => a + gy(r.vals, y), 0))],
+    [`<b>Framvirk NPV @${r.disc || 15}%</b>`, `<b>${kr0(w)}</b>`],
+    ['NPV ÷ fjárfest beint', inv > 0 ? (w / inv).toLocaleString('is-IS', { maximumFractionDigits: 1 }) + '×' : '—']]);
+  if (r.buildup && r.buildup.length) {
+    html += '<h4>Forsendur þínar (Forsendur GT)</h4>' +
+      mtable(['Forsenda', 'Gildi'], r.buildup.map(f =>
+        [f[0], typeof f[1] === 'number' ? f[1].toLocaleString('is-IS') : f[1]]));
+  }
+  if (r.fracs && Object.keys(r.fracs).length) {
+    const fr = Object.entries(r.fracs).sort();
+    html += '<h4>Innlausn eftir árum</h4>' + mtable(['Ár', 'Hlutfall', 'kr', `Núvirt @${r.disc || 15}%`],
+      fr.map(([y, f]) => {
+        const amt = gy(r.vals, y);
+        const nv = amt / Math.pow(1 + (r.disc || 15) / 100, Math.max(parseInt(y) - parseInt((D.generated || '2026').slice(0, 4)), 0));
+        return [y, Math.round(f * 100) + '%', kr0(amt), kr0(nv)];
+      }));
+  }
+  if (mb && mb.gattir && mb.gattir.length) {
+    html += '<h4>Gáttir</h4>' + mtable(['Gátt', 'Staða', 'Sönnun/heimild'],
+      mb.gattir.map(g => [g.nafn, g.stada, `<span style="color:var(--muted);font-size:0.8rem">${g.sonnun || ''}</span>`]));
+  }
+  if (mb && mb.virdi) html += `<h4>Virðisrök</h4><p style="font-size:0.85rem">${mb.virdi}</p>`;
+  if (r.ath) html += `<p class="note">Forsendunóta: ${r.ath}</p>`;
+  if (mb && mb.naestu_skref) html += `<h4>Næstu skref</h4><p style="font-size:0.85rem">${mb.naestu_skref}</p>`;
+  if (mb && mb.ahaetta && mb.ahaetta !== '—') html += `<h4>Áhætta</h4><p style="font-size:0.85rem">${mb.ahaetta}</p>`;
+  html += '<div class="note">Allar forsendur og innlausnarhlutföll eru þín — breyttu þeim á '
+    + '"Forsendur GT"-flipa vinnubókarinnar. Engar líkur í líkaninu; öll verkefni núvirt á '
+    + (r.disc || 15) + '% (ákv. GT 3.9.2026).</div>';
+  openModal(html);
+}
+
+function renderVirdis() {
+  const t = document.getElementById('virdistbl');
+  const vd = D.virdismat || { years: [], rows: [] };
+  const invByCode = {}, invAllByCode = {};
+  for (const p of D.projects) {
+    invByCode[p.code] = D.years.reduce((a, y) => a + gy(p.ext, y) + gy(p.labour, y), 0);
+    invAllByCode[p.code] = invByCode[p.code] + D.years.reduce((a, y) => a + gy(p.oh, y), 0);
+  }
+  const vt = r => vd.years.reduce((a, y) => a + gy(r.vals, y), 0);
+  const devRows = vd.rows.filter(r => r.code).sort((a, b) => vNpv(b, vd.years) - vNpv(a, vd.years));
+  const pipeRows = vd.rows.filter(r => !r.code).sort((a, b) => vt(b) - vt(a));
+  let html = '<tr><th>Verkefni</th><th>Fjárfest beint</th><th>m. yfirb.</th>' +
+             '<th>Innlausn alls</th><th>Fyrsta ár</th><th>Framvirk NPV @15%</th><th>NPV/beint</th></tr>';
+  let sumInv = 0, sumInvAll = 0, sumT = 0, sumN = 0;
+  const firstYr = r => { const ys = Object.keys(r.fracs || {}).sort(); return ys.length ? ys[0] : '—'; };
+  for (const r of devRows) {
+    const inv = invByCode[r.code] || 0, invAll = invAllByCode[r.code] || 0;
+    const tot = vt(r), n = vNpv(r, vd.years);
+    sumInv += inv; sumInvAll += invAll; sumT += tot; sumN += n;
+    const mult = inv > 0 ? (n / inv).toLocaleString('is-IS', { maximumFractionDigits: 1 }) + '×' : '—';
+    html += `<tr><td>${r.code ? r.code + ' — ' : ''}${r.heiti}</td>` +
+            `<td>${kr0(inv)}</td><td>${kr0(invAll)}</td><td>${kr0(tot)}</td>` +
+            `<td>${firstYr(r)}</td><td><b>${kr0(n)}</b></td><td>${mult}</td></tr>`;
+  }
+  html += `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>Samtals þróun</td>` +
+          `<td>${kr0(sumInv)}</td><td>${kr0(sumInvAll)}</td><td>${kr0(sumT)}</td><td></td>` +
+          `<td>${kr0(sumN)}</td>` +
+          `<td>${sumInv > 0 ? (sumN / sumInv).toLocaleString('is-IS', { maximumFractionDigits: 1 }) + '×' : '—'}</td></tr>`;
+  for (const r of pipeRows) {
+    const tot = vt(r), n = vNpv(r, vd.years);
+    html += `<tr style="opacity:0.65"><td>${r.heiti} <span style="color:var(--muted);font-size:0.78rem">(þjónustuþóknun)</span></td>` +
+            `<td>—</td><td>—</td><td>${kr0(tot)}</td><td>${firstYr(r)}</td><td>${kr0(n)}</td><td></td></tr>`;
+  }
+  t.innerHTML = html;
+  devRows.forEach((r, i) => {
+    const tr = t.rows[i + 1];
+    if (tr) {
+      tr.classList.add('drill');
+  tr.onclick = () => drillMats(r, invByCode[r.code] || 0, invAllByCode[r.code] || 0);
+    }
+  });
+  // timeline: probability-weighted expected inflows per year
+  const box = document.getElementById('virdistl');
+  box.textContent = '';
+  const devY = y => devRows.reduce((a, r) => a + gy(r.vals, y), 0);
+  const pipeY = y => pipeRows.reduce((a, r) => a + gy(r.vals, y), 0);
+  const max = Math.max(...vd.years.map(y => devY(y) + pipeY(y)), 1);
+  for (const y of vd.years) {
+    const col = el('div', 'col');
+    col.appendChild(el('div', 'tv', mkr(devY(y) + pipeY(y))));
+    const stack = el('div', 'stack');
+    for (const [v, color, label] of [[devY(y), 'var(--s-ext)', 'Þróunarverkefni'],
+                                     [pipeY(y), 'var(--s-oh)', 'Þjónustupípa']]) {
+      if (!v || v < 500000) continue;
+      const seg = el('div', 'cseg');
+      seg.style.background = color;
+      seg.style.height = Math.max(v / max * 170, 2) + 'px';
+      seg.dataset.tip = `<b>${y}</b> — ${label}<br>${kr0(v)} kr`;
+      stack.appendChild(seg);
+    }
+    col.append(stack, el('div', 'yl', String(y)));
+    box.appendChild(col);
+  }
+  document.getElementById('virdisnote').textContent =
+    `Vænt innlausn eftir árum (ódiskonterað) á móti ${mkr(sumInv)}.kr beinni fjárfestingu til dagsins. ` +
+    `Forsendur þínar af "Forsendur GT" — engar líkur, öll núvirðing á 15%.`;
+  bindTips(box);
+}
+
+function renderAll() {
+  renderChips();
+  renderKpis();
+  renderDev();
+  renderBridge();
+  renderClients();
+  renderMinis();
+  renderFlows();
+  renderVirdis();
+  renderEmployees();
+}
+
+function show(data) {
+  D = data;
+  if (D.scope === 'dev') {
+    // þróunarteymi: only the development book exists in this payload
+    D.clients = D.clients || []; D.employees = D.employees || []; D.flows = D.flows || {};
+    D.bridge = D.bridge || {}; D.pool = D.pool || {}; D.unallocated = D.unallocated || {};
+    D.gt_split = D.gt_split || {};
+    for (const id of ['sec-clients', 'sec-flows', 'sec-emp']) document.getElementById(id).style.display = 'none';
+  }
+  if (D.team) {
+    document.querySelector('header h1').textContent = D.scope === 'dev'
+      ? '🏗 Ísfast — Þróunarbók (þróunarteymi)' : '📊 Ísfast — Rekstur & fjárfesting (teymisútgáfa)';
+    document.title = D.scope === 'dev' ? 'Ísfast — Þróunarbók' : 'Ísfast — teymisútgáfa';
+    const yrs = D.years, b = D.blended || {};
+    document.getElementById('generated').textContent =
+      'Uppfært ' + data.generated + ' · BC + Toggl · innri vinna metin á BLÖNDUÐUM taxta (' +
+      yrs.map(y => y + ': ' + kr0(gy(b, y)) + ' kr/klst').join(' · ') + ') — engir einstaklingstaxtar í þessari útgáfu';
+    document.querySelectorAll('.legend span').forEach(sp => {
+      if (sp.textContent.includes('Innri vinna (t×taxti)')) sp.lastChild.textContent = 'Innri vinna (blandaður taxti)';
+      if (sp.textContent.includes('Aðkeypt GT (LGT)')) sp.style.display = 'none';
+      if (sp.textContent.trim() === 'Laun') sp.lastChild.textContent = 'Laun og aðkeypt þjónusta';
+    });
+  } else {
+    document.getElementById('generated').textContent =
+      'Uppfært ' + data.generated + ' · BC (fjárhagur) + Toggl + Útseld vinna + Ráðningasamningar';
+  }
+  renderAll();
+  document.getElementById('lock').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+}
+
+async function boot() {
+  const res = await fetch(IS_TEAM_PATH ? 'isfast-team.enc' : 'isfast-abc.enc', { cache: 'no-store' });
+  const payload = await res.json();
+  const saved = localStorage.getItem(STORE_KEY);
+  if (saved) {
+    try { show(await decrypt(payload, saved)); return; } catch (e) { localStorage.removeItem(STORE_KEY); }
+  }
+  document.getElementById('lock').classList.remove('hidden');
+  document.getElementById('lockform').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const pass = document.getElementById('pass').value;
+    try {
+      const data = await decrypt(payload, pass);
+      localStorage.setItem(STORE_KEY, pass);
+      show(data);
+    } catch (e) {
+      document.getElementById('lockmsg').textContent = 'Rangt lykilorð';
+    }
+  };
+}
+document.getElementById('lockbtn').onclick = () => { localStorage.removeItem(STORE_KEY); location.reload(); };
+boot();
+</script>
+</body>
+</html>
