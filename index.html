@@ -104,6 +104,19 @@
   .duo { display: flex; gap: 0.45rem; align-items: flex-end; height: 100%; }
   .duo .stack { flex: 1; }
   .drill { cursor: pointer; }
+  .strow { display: grid; grid-template-columns: 190px 1fr; gap: 0.7rem; padding: 0.45rem 0;
+    border-bottom: 1px solid var(--border); font-size: 0.86rem; align-items: start; }
+  .strow:last-child { border-bottom: none; }
+  .strow .nm { font-weight: 600; }
+  .strow .nm small { display: block; color: var(--muted); font-weight: 400; font-size: 0.78rem; }
+  .strow ul { list-style: none; }
+  .strow li { padding: 0.08rem 0; }
+  .strow li .due { color: var(--muted); font-size: 0.8rem; margin-left: 0.4rem; }
+  .st-ok { color: var(--s-lab); } .st-run { color: var(--accent); } .st-no { color: var(--muted); }
+  .pbar { display: inline-block; width: 90px; height: 9px; border-radius: 4px; background: var(--border);
+    position: relative; vertical-align: middle; margin-right: 0.4rem; }
+  .pbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--s-ext); }
+  .pbar i.over { background: var(--neg); }
   .drill:hover { background: var(--card-hover); }
   #modalbg { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 20;
     display: none; align-items: flex-start; justify-content: center; padding: 4vh 1rem; }
@@ -144,6 +157,7 @@
     <p id="generated"></p>
   </header>
   <div class="filters" id="yearchips"></div>
+  <div class="filters" id="qchips" style="margin-top:0.3rem"></div>
   <div class="kpis" id="kpis"></div>
 
   <section>
@@ -157,6 +171,26 @@
       <div id="devbars"></div>
       <div class="note">SPV-tala = ytri + innri vinna (án yfirbyggingar). Óvirk verkefni fölnuð.
         GT-skipting <span id="gtsplit"></span> — breytist á Stillingar-flipa vinnubókarinnar.</div>
+    </div>
+  </section>
+
+  <section id="sec-plan">
+    <h2>🎯 Áætlun vs raun — ÍF Projects (BG)</h2>
+    <div class="panel">
+      <table id="plantbl"></table>
+      <div class="note" id="plannote"></div>
+    </div>
+  </section>
+
+  <section id="sec-status">
+    <h2 id="statush">🧭 Staða & næstu aðgerðir</h2>
+    <div class="panel">
+      <div id="statusbox"></div>
+      <div class="note" id="statusnote"></div>
+    </div>
+    <div class="panel" style="margin-top:0.8rem">
+      <h3 style="font-size:0.85rem;color:var(--muted);font-weight:600;margin-bottom:0.5rem">Ný verkefni í skoðun</h3>
+      <table id="newtbl"></table>
     </div>
   </section>
 
@@ -251,10 +285,17 @@ async function decrypt(payload, passphrase) {
   return JSON.parse(new TextDecoder().decode(plain));
 }
 
-let D = null, selYear = null;
+let D = null, selYear = null, selQ = null;
 const gy = (o, y) => (o && (o[y] ?? o[String(y)])) || 0;
-const years = () => selYear ? [selYear] : D.years;
-const S = (o) => years().reduce((a, y) => a + gy(o, y), 0);
+const curYear = () => Math.max(...D.years);
+// period keys: a year (int) or 'YYYY-Qn' — every payload dict carries both
+const periods = () => selYear ? [selQ ? `${selYear}-Q${selQ}` : selYear] : D.years;
+const years = periods;
+const S = (o) => periods().reduce((a, k) => a + gy(o, k), 0);
+const SA = (o) => D.years.reduce((a, y) => a + gy(o, y), 0);   // all-time
+const perLabel = () => !selYear ? 'allt tímabilið' : selQ ? `${selYear} Q${selQ}`
+  : (selYear === curYear() ? `${selYear} YTD` : String(selYear));
+const qkeys = (y) => ((D.quarters && (D.quarters[y] || D.quarters[String(y)])) || [1, 2, 3, 4]).map(q => `${y}-Q${q}`);
 const mkr = v => (v / 1e6).toLocaleString('is-IS', { maximumFractionDigits: 1, minimumFractionDigits: v >= 1e8 ? 0 : 1 }) + ' m';
 const kr0 = v => Math.round(v).toLocaleString('is-IS');
 const hrs = v => Math.round(v).toLocaleString('is-IS') + ' klst';
@@ -284,11 +325,22 @@ function renderChips() {
   box.textContent = '';
   const mk = (label, y) => {
     const c = el('span', 'chip' + ((selYear === y) ? ' on' : ''), label);
-    c.onclick = () => { selYear = y; renderAll(); };
+    c.onclick = () => { selYear = y; selQ = null; renderAll(); };
     box.appendChild(c);
   };
   mk('Allt tímabilið', null);
-  for (const y of D.years) mk(String(y), y);
+  for (const y of D.years) mk(y === curYear() ? y + ' YTD' : String(y), y);
+  const qb = document.getElementById('qchips');
+  qb.textContent = '';
+  if (selYear) {
+    const mq = (label, q) => {
+      const c = el('span', 'chip' + ((selQ === q) ? ' on' : ''), label);
+      c.onclick = () => { selQ = q; renderAll(); };
+      qb.appendChild(c);
+    };
+    mq(selYear === curYear() ? 'Árið til dagsins (YTD)' : 'Allt árið', null);
+    for (const k of qkeys(selYear)) mq('Q' + k.slice(-1), parseInt(k.slice(-1)));
+  }
 }
 
 function projTotals(p) {
@@ -512,18 +564,168 @@ function drillProject(p) {
     `SPV-tala (beint) = ytri + innri vinna = ${kr0(te + tl)} kr</div>`;
   html += '<h4>Eftir árum</h4>' +
     mtable(['Ár', 'Ytri kostn.', 'Innri vinna', 'Tímar', 'Yfirbygging', 'Alls'], perY);
+  const fy = selYear || curYear();
+  const perQ = qkeys(fy).map(k => {
+    const e = gy(p.ext, k), l = gy(p.labour, k), o = gy(p.oh, k);
+    return ['Q' + k.slice(-1), kr0(e), kr0(l), kr0(gy(p.hours, k)) + ' klst', kr0(o), kr0(e + l + o)];
+  });
+  perQ.push([`<b>${fy}${fy === curYear() ? ' YTD' : ''}</b>`, `<b>${kr0(gy(p.ext, fy))}</b>`, `<b>${kr0(gy(p.labour, fy))}</b>`,
+             `<b>${kr0(gy(p.hours, fy))} klst</b>`, `<b>${kr0(gy(p.oh, fy))}</b>`, `<b>${kr0(gy(p.ext, fy) + gy(p.labour, fy) + gy(p.oh, fy))}</b>`]);
+  html += `<h4>Eftir ársfjórðungum ${fy}</h4>` +
+    mtable(['Fjórðungur', 'Ytri kostn.', 'Innri vinna', 'Tímar', 'Yfirbygging', 'Alls'], perQ);
+  html += planBlock(p) + statusBlock(p.code);
+  if (p.tproj && p.tproj.length) {
+    html += `<h4>Skráðir tímar eftir Toggl-verkefnum</h4>` +
+      mtable(['Toggl-verkefni', perLabel(), 'Allt tímabilið'],
+        p.tproj.map(x => [x.name, kr0(S(x.h)), kr0(SA(x.h))])
+          .concat([['<b>Alls</b>', `<b>${kr0(p.tproj.reduce((a, x) => a + S(x.h), 0))}</b>`,
+                    `<b>${kr0(p.tproj.reduce((a, x) => a + SA(x.h), 0))}</b>`]]));
+  }
   if (p.people && p.people.length) {
     html += '<h4>Innri vinna — hverjir</h4>' + (D.team
-      ? mtable(['Starfsmaður', 'Tímar'], p.people.map(x => [x.name, kr0(x.h)]))
-      : mtable(['Starfsmaður', 'Tímar', 'Kostnaður'], p.people.map(x => [x.name, kr0(x.h), kr0(x.kr)])));
+      ? mtable(['Starfsmaður', perLabel(), 'Allt tímabilið'], p.people.map(x => [x.name, kr0(S(x.h)), kr0(SA(x.h))]))
+      : mtable(['Starfsmaður', 'Tímar (' + perLabel() + ')', 'Tímar alls', 'Kostnaður alls'],
+               p.people.map(x => [x.name, kr0(S(x.h)), kr0(SA(x.h)), kr0(SA(x.kr))])));
   }
   if (p.vendors && p.vendors.length) {
     html += '<h4>Ytri kostnaður — birgjar</h4>' + mtable(['Birgir', 'kr'],
       p.vendors.map(x => [x.name, kr0(x.kr)]));
   }
   html += '<div class="note">Línur á bak við ytri kostnað eru í vinnubókinni (Línur-flipi, ' +
-          'sía á Endanlegt verkefni). Yfirbygging = hlutdeild skv. beinum tímum.</div>';
+          'sía á Endanlegt verkefni). Yfirbygging = hlutdeild skv. beinum tímum. Ársfjórðungar: ' +
+          'Toggl-tímar eftir skráningardegi; reiknaðir tímar (GT-gólf, óskráð) dreift eftir liðnum mánuðum.</div>';
   openModal(html);
+}
+
+// ---- ÍF Projects (BG): áætlun vs raun + staða ----
+const bgPeriodKeys = (txt) => {
+  // 'Q1-Q2 2026' → ['2026-Q1','2026-Q2']; 'Q3 2026' → ['2026-Q3']
+  const m = /Q(\d)(?:\s*-\s*Q(\d))?\s*(\d{4})/i.exec(txt || '');
+  if (!m) return [];
+  const a = parseInt(m[1]), b = m[2] ? parseInt(m[2]) : a, out = [];
+  for (let q = a; q <= b; q++) out.push(`${m[3]}-Q${q}`);
+  return out;
+};
+function planRow(p) {
+  const pl = D.bg && D.bg.plan && D.bg.plan[p.code];
+  if (!pl) return null;
+  const hAll = SA(p.hours), dAll = SA(p.ext) + SA(p.labour);
+  const pk = bgPeriodKeys(pl.sunk_period);
+  const hPer = pk.reduce((a, k) => a + gy(p.hours, k), 0);
+  return { p, pl, hAll, dAll, hPer, pk };
+}
+function pbar(frac) {
+  const w = Math.min(Math.max(frac || 0, 0), 1.25) / 1.25 * 100;
+  return `<span class="pbar"><i class="${frac > 1 ? 'over' : ''}" style="width:${w}%"></i></span>${frac === null ? '—' : Math.round(frac * 100) + '%'}`;
+}
+function planBlock(p) {
+  const r = planRow(p);
+  if (!r) return '';
+  const pl = r.pl;
+  const rows = [
+    ['Skráðir tímar alls (BG)', kr0(pl.sunk_h || 0), kr0(r.hAll), pbar(pl.sunk_h ? r.hAll / pl.sunk_h : null)],
+    ['Áætluð viðbót, tímar', kr0(pl.add_h || 0), '', ''],
+    ['<b>Áætlaðir heildartímar</b>', `<b>${kr0(pl.plan_h || 0)}</b>`, `<b>${kr0(r.hAll)}</b>`, pbar(pl.plan_h ? r.hAll / pl.plan_h : null)],
+    [`Sokkinn kostn. (BG, ${pl.rate_thkr || '—'} þkr/t)`, kr0(pl.sunk_kr || 0), kr0(r.dAll), pbar(pl.sunk_kr ? r.dAll / pl.sunk_kr : null)],
+    ['Áætluð viðbót, kr', kr0(pl.add_kr || 0), '', ''],
+    ['<b>Áætlaður þróunarkostnaður alls</b>', `<b>${kr0(pl.plan_kr || 0)}</b>`, `<b>${kr0(r.dAll)}</b>`, pbar(pl.plan_kr ? r.dAll / pl.plan_kr : null)],
+  ];
+  if (r.pk.length) rows.push([`Skráðir tímar ${pl.sunk_period} (BG)`, kr0(pl.sunk_h_period || 0), kr0(r.hPer),
+                              pbar(pl.sunk_h_period ? r.hPer / pl.sunk_h_period : null)]);
+  if (pl.value_kr) rows.push(['Verkefnavirði (BG)', kr0(pl.value_kr), '', '']);
+  return `<h4>Áætlun vs raun — ÍF Projects (${D.bg.yfirlit_tab})</h4>` +
+    mtable(['', 'Áætlun BG', 'Raun (BC+Toggl)', 'Nýting'], rows) +
+    `<div class="note">Raun = allt tímabilið; kostnaður raun = ytri + innri vinna (beint). BG-talan er metin á útseldum taxta, ekki kostnaði.</div>`;
+}
+const stCls = s => /lokið/i.test(s) ? 'st-ok' : /vinnslu|gangi|hafi[ðn]|byrja/i.test(s) ? 'st-run' : 'st-no';
+function statusBlock(code) {
+  const st = D.bg && D.bg.status && D.bg.status[code];
+  if (!st) return '';
+  let html = `<h4>Staða — ${D.bg.status_tab} (BG)</h4>`;
+  if (st.next.length) html += `<div style="font-size:0.84rem;margin-bottom:0.3rem"><b>${st.next_label || 'Næstu aðgerðir'}</b></div>` +
+    mtable(['Aðgerð', 'Áætluð lok'], st.next.map(n => [n.a, n.due || '—']));
+  if (st.prev.length) html += `<div style="font-size:0.84rem;margin:0.6rem 0 0.3rem"><b>${st.prev_label || 'Fyrri aðgerðir'}</b></div>` +
+    mtable(['Aðgerð', 'Staðan'], st.prev.map(n => [n.a, `<span class="${stCls(n.s)}">${n.s || '—'}</span>`]));
+  if (st.links.length) html += '<div style="font-size:0.84rem;margin-top:0.5rem"><b>Gögn:</b> ' +
+    st.links.map(l => l.url ? `<a href="${l.url}" target="_blank" rel="noopener" style="color:var(--accent)">${l.t}</a>` : l.t).join(' · ') + '</div>';
+  return html;
+}
+function renderPlan() {
+  const sec = document.getElementById('sec-plan');
+  const t = document.getElementById('plantbl');
+  if (!D.bg || !D.bg.plan || !Object.keys(D.bg.plan).length) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const rows = D.projects.map(planRow).filter(Boolean)
+    .sort((a, b) => (b.pl.plan_kr || 0) - (a.pl.plan_kr || 0));
+  const per = rows[0] && rows[0].pl.sunk_period;
+  let html = `<tr><th>Verkefni</th><th>Áætl. tímar alls</th><th>Skráðir t. (raun)</th><th>Nýting</th>` +
+             `<th>Áætl. kostn.</th><th>Raun beint</th><th>Nýting</th><th>BG ${per || ''}</th><th>Toggl ${per || ''}</th></tr>`;
+  const T = { ph: 0, h: 0, pk: 0, d: 0, bp: 0, hp: 0 };
+  for (const r of rows) {
+    const pl = r.pl;
+    T.ph += pl.plan_h || 0; T.h += r.hAll; T.pk += pl.plan_kr || 0; T.d += r.dAll; T.bp += pl.sunk_h_period || 0; T.hp += r.hPer;
+    html += `<tr><td>${r.p.tnr ? r.p.tnr + ' · ' : ''}${r.p.code}</td><td>${kr0(pl.plan_h || 0)}</td><td>${kr0(r.hAll)}</td>` +
+            `<td style="text-align:left">${pbar(pl.plan_h ? r.hAll / pl.plan_h : null)}</td>` +
+            `<td>${kr0(pl.plan_kr || 0)}</td><td>${kr0(r.dAll)}</td>` +
+            `<td style="text-align:left">${pbar(pl.plan_kr ? r.dAll / pl.plan_kr : null)}</td>` +
+            `<td>${kr0(pl.sunk_h_period || 0)}</td><td>${kr0(r.hPer)}</td></tr>`;
+  }
+  html += `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>Samtals</td><td>${kr0(T.ph)}</td><td>${kr0(T.h)}</td>` +
+          `<td style="text-align:left">${pbar(T.ph ? T.h / T.ph : null)}</td><td>${kr0(T.pk)}</td><td>${kr0(T.d)}</td>` +
+          `<td style="text-align:left">${pbar(T.pk ? T.d / T.pk : null)}</td><td>${kr0(T.bp)}</td><td>${kr0(T.hp)}</td></tr>`;
+  t.innerHTML = html;
+  rows.forEach((r, i) => { const tr = t.rows[i + 1]; if (tr) { tr.classList.add('drill'); tr.onclick = () => drillProject(r.p); } });
+  document.getElementById('plannote').innerHTML =
+    `Áætlun = "Skráðir tímar alls" + "Áætluð viðbót" og "Samtals áætlaður þróunarkostnaður" af flipanum <b>${D.bg.yfirlit_tab}</b> í ` +
+    `<a href="${D.bg.source}" target="_blank" rel="noopener" style="color:var(--accent)">ÍF Projects</a> (BG, afrit ${D.bg.snapshot}). ` +
+    `Raun = allt tímabilið úr Toggl (tímar) og BC + Toggl×taxti (beinn kostnaður). Síðustu tveir dálkar bera BG-tölu sama tímabils saman við Toggl.`;
+}
+function drillNew(n) {
+  let html = `<h3>${n.name}</h3><div class="sub">Ný verkefni í skoðun — ÍF Projects (BG)</div>`;
+  if (n.idea) html += `<h4>Kjarni hugmyndar</h4><p style="font-size:0.88rem">${n.idea}</p>`;
+  if (n.approach) html += `<h4>Lykilþættir í nálgun</h4><p style="font-size:0.88rem">${n.approach}</p>`;
+  if (n.status) html += `<h4>Staðan</h4><p style="font-size:0.88rem">${n.status}</p>`;
+  if (n.next) html += `<h4>Næstu skref</h4><p style="font-size:0.88rem">${n.next}</p>`;
+  if (n.link && n.link.t) html += `<p style="font-size:0.85rem;margin-top:0.6rem"><b>Gögn:</b> ` +
+    (n.link.url ? `<a href="${n.link.url}" target="_blank" rel="noopener" style="color:var(--accent)">${n.link.t}</a>` : n.link.t) + '</p>';
+  openModal(html);
+}
+function renderStatus() {
+  const sec = document.getElementById('sec-status');
+  if (!D.bg || !D.bg.status || !Object.keys(D.bg.status).length) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  document.getElementById('statush').textContent = `🧭 Staða & næstu aðgerðir — ${D.bg.status_tab} (BG)`;
+  const box = document.getElementById('statusbox');
+  box.textContent = '';
+  const byCode = {}; D.projects.forEach(p => byCode[p.code] = p);
+  const order = Object.values(D.bg.status).sort((a, b) => {
+    const pa = byCode[a.code], pb = byCode[b.code];
+    return (pb ? projTotals(pb).alls : -1) - (pa ? projTotals(pa).alls : -1);
+  });
+  for (const st of order) {
+    const p = byCode[st.code];
+    const row = el('div', 'strow' + (p ? ' drill' : ''));
+    const done = st.prev.filter(x => /lokið/i.test(x.s)).length;
+    row.appendChild(el('div', 'nm', `${p ? (p.tnr ? p.tnr + ' · ' : '') + p.code : st.name}` +
+      `<small>${st.name}${st.prev.length ? ` · ${st.prev_label}: ${done}/${st.prev.length} lokið` : ''}</small>`));
+    const ul = el('ul');
+    if (!st.next.length) ul.appendChild(el('li', null, '<span class="st-no">Engar skráðar aðgerðir</span>'));
+    for (const n of st.next) ul.appendChild(el('li', null, `${n.a}${n.due ? `<span class="due">→ ${n.due}</span>` : ''}`));
+    row.appendChild(ul);
+    if (p) row.onclick = () => drillProject(p);
+    box.appendChild(row);
+  }
+  document.getElementById('statusnote').innerHTML =
+    `Aðgerðir, staða og gögn af flipanum <b>${D.bg.status_tab}</b> í ` +
+    `<a href="${D.bg.source}" target="_blank" rel="noopener" style="color:var(--accent)">ÍF Projects</a> (BG, afrit ${D.bg.snapshot}). Smelltu á verkefni fyrir fyrri aðgerðir, gögn og tölur.`;
+  const t = document.getElementById('newtbl');
+  const nn = D.bg.new || [];
+  if (!nn.length) { t.innerHTML = '<tr><td style="color:var(--muted)">Engin ný verkefni skráð</td></tr>'; return; }
+  let html = '<tr><th>Verkefni</th><th style="text-align:left">Staðan</th><th style="text-align:left">Næstu skref</th></tr>';
+  for (const n of nn) html += `<tr><td>${n.name}</td><td style="text-align:left;white-space:normal">${n.status || '—'}</td>` +
+    `<td style="text-align:left;white-space:normal">${(n.next || '—').slice(0, 140)}${(n.next || '').length > 140 ? '…' : ''}</td></tr>`;
+  t.innerHTML = html;
+  nn.forEach((n, i) => { const tr = t.rows[i + 1]; if (tr) { tr.classList.add('drill'); tr.onclick = () => drillNew(n); } });
 }
 
 function drillClient(c) {
@@ -538,10 +740,15 @@ function drillClient(c) {
   let html = `<h3>${c.name}</h3><div class="sub">Framlegð = tekjur − innri vinna − yfirbygging</div>`;
   html += '<h4>Eftir árum</h4>' +
     mtable(['Ár', 'Tekjur', 'Skráðir t.', 'Seldir t.', 'Innri vinna', 'Yfirb.', 'Framlegð'], perY);
+  if (c.tproj && c.tproj.length) {
+    html += '<h4>Skráðir tímar eftir Toggl-verkefnum</h4>' +
+      mtable(['Toggl-verkefni', perLabel(), 'Allt tímabilið'], c.tproj.map(x => [x.name, kr0(S(x.h)), kr0(SA(x.h))]));
+  }
   if (c.people && c.people.length) {
     html += '<h4>Hverjir unnu</h4>' + (D.team
-      ? mtable(['Starfsmaður', 'Tímar'], c.people.map(p => [p.name, kr0(p.h)]))
-      : mtable(['Starfsmaður', 'Tímar', 'Kostnaður'], c.people.map(p => [p.name, kr0(p.h), kr0(p.kr)])));
+      ? mtable(['Starfsmaður', perLabel(), 'Allt tímabilið'], c.people.map(p => [p.name, kr0(S(p.h)), kr0(SA(p.h))]))
+      : mtable(['Starfsmaður', 'Tímar (' + perLabel() + ')', 'Tímar alls', 'Kostnaður alls'],
+               c.people.map(p => [p.name, kr0(S(p.h)), kr0(SA(p.h)), kr0(SA(p.kr))])));
   }
   if (c.docs && c.docs.length) {
     html += '<h4>Stærstu tekjufærslur (GL)</h4>' + mtable(['Skjal', 'Ár', 'kr'],
@@ -606,7 +813,7 @@ const KPI_EXPL = {
 };
 function drillKpi(key, val) {
   const [title, expl] = KPI_EXPL[key] || [key, ''];
-  openModal(`<h3>${title}</h3><div class="sub">${mkr(val)}.kr ${selYear ? '· ' + selYear : '· öll ár'}</div>` +
+  openModal(`<h3>${title}</h3><div class="sub">${mkr(val)}.kr · ${perLabel()}</div>` +
             `<p style="font-size:0.9rem">${expl}</p>` +
             '<div class="note">Smelltu á línur í töflunum eða súlur til að sjá sundurliðun á bak við hverja tölu.</div>');
 }
@@ -815,6 +1022,8 @@ function renderAll() {
   renderChips();
   renderKpis();
   renderDev();
+  renderPlan();
+  renderStatus();
   renderBridge();
   renderClients();
   renderMinis();
@@ -839,7 +1048,8 @@ function show(data) {
     const yrs = D.years, b = D.blended || {};
     document.getElementById('generated').textContent =
       'Uppfært ' + data.generated + ' · BC + Toggl · innri vinna metin á BLÖNDUÐUM taxta (' +
-      yrs.map(y => y + ': ' + kr0(gy(b, y)) + ' kr/klst').join(' · ') + ') — engir einstaklingstaxtar í þessari útgáfu';
+      yrs.map(y => y + ': ' + kr0(gy(b, y)) + ' kr/klst').join(' · ') + ') — engir einstaklingstaxtar í þessari útgáfu' +
+      (D.bg ? ' · áætlun & staða úr ÍF Projects (BG, afrit ' + D.bg.snapshot + ')' : '');
     document.querySelectorAll('.legend span').forEach(sp => {
       if (sp.textContent.includes('Innri vinna (t×taxti)')) sp.lastChild.textContent = 'Innri vinna (blandaður taxti)';
       if (sp.textContent.includes('Aðkeypt GT (LGT)')) sp.style.display = 'none';
@@ -847,7 +1057,8 @@ function show(data) {
     });
   } else {
     document.getElementById('generated').textContent =
-      'Uppfært ' + data.generated + ' · BC (fjárhagur) + Toggl + Útseld vinna + Ráðningasamningar';
+      'Uppfært ' + data.generated + ' · BC (fjárhagur) + Toggl + Útseld vinna + Ráðningasamningar' +
+      (D.bg ? ' · ÍF Projects (BG, afrit ' + D.bg.snapshot + ')' : '');
   }
   renderAll();
   document.getElementById('lock').classList.add('hidden');
