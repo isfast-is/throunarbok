@@ -1,0 +1,6 @@
+# Aldrei hrein gögn eða lykilorð í þetta (opinbera) repo
+team_data.json
+*.plain.json
+.passphrase*
+node_modules/
+.DS_Store
